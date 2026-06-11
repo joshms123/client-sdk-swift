@@ -365,8 +365,14 @@ extension Room: SignalClientDelegate {
         do {
             try await subscriber.set(remoteDescription: offer)
             let answer = try await subscriber.createAnswer()
-            try await subscriber.set(localDescription: answer)
-            try await signalClient.send(answer: answer, offerId: offerId)
+            // Advertise Opus stereo receive — the decoder reads the LOCAL
+            // description's fmtp and defaults to mono (see OpusStereoSdp).
+            let stereoAnswer = LKRTCSessionDescription(
+                type: answer.type,
+                sdp: OpusStereoSdp.enableReceive(in: answer.sdp)
+            )
+            try await subscriber.set(localDescription: stereoAnswer)
+            try await signalClient.send(answer: stereoAnswer, offerId: offerId)
             connectSpan?.record("answer_sent")
         } catch {
             log("Failed to send answer for offerId: \(offerId), error: \(error)", .error)
