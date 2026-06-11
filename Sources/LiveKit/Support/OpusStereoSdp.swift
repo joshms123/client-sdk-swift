@@ -17,33 +17,61 @@
 import Foundation
 
 /// Opus stereo RECEIVE requires the answering side to advertise `stereo=1`
-/// on its Opus fmtp (RFC 7587 §6.1): libwebrtc configures the decoder's
-/// channel count from the LOCAL description and defaults to mono otherwise
-/// (browsers ship the stereo-by-default field trial; native builds do not),
-/// so a stereo broadcast decodes mono without this.
+/// on its Opus fmtp (RFC 7587 §6.1): libwebrtc configures each m-line's
+/// decoder channel count from the LOCAL description and defaults to mono
+/// otherwise.
+///
+/// Munging is PER MEDIA SECTION: payload type numbers repeat across
+/// m-sections (every subscribed track has its own `a=fmtp:111 …`), so a
+/// global first-match patches only the first audio section — every later
+/// section's decoder is born mono, discards the stereo side channel, and a
+/// track subscribed after the first stays dual-mono until a fresh
+/// connection (the stale-mono-subscription bug).
 enum OpusStereoSdp {
     static func enableReceive(in sdp: String) -> String {
-        var lines = sdp.components(separatedBy: "\r\n")
+        let lines = sdp.components(separatedBy: "\r\n")
 
-        // Opus payload types: "a=rtpmap:<pt> opus/48000/2"
-        var opusPayloadTypes: [String] = []
-        for line in lines where line.hasPrefix("a=rtpmap:") && line.lowercased().contains(" opus/") {
-            if let pt = line.dropFirst("a=rtpmap:".count).split(separator: " ").first {
-                opusPayloadTypes.append(String(pt))
+        // Split into the session header plus one chunk per m-section.
+        var sections: [[String]] = [[]]
+        for line in lines {
+            if line.hasPrefix("m=") {
+                sections.append([line])
+            } else {
+                sections[sections.count - 1].append(line)
             }
         }
-        guard !opusPayloadTypes.isEmpty else { return sdp }
 
-        for pt in opusPayloadTypes {
-            let fmtpPrefix = "a=fmtp:\(pt) "
-            if let index = lines.firstIndex(where: { $0.hasPrefix(fmtpPrefix) }) {
-                if !lines[index].contains("stereo=") {
-                    lines[index] += ";stereo=1;sprop-stereo=1"
+        for index in sections.indices where sections[index].first?.hasPrefix("m=audio") == true {
+            var section = sections[index]
+
+            var opusPayloadTypes: [String] = []
+            for line in section where line.hasPrefix("a=rtpmap:") && line.lowercased().contains(" opus/") {
+                if let pt = line.dropFirst("a=rtpmap:".count).split(separator: " ").first {
+                    opusPayloadTypes.append(String(pt))
                 }
-            } else if let rtpmapIndex = lines.firstIndex(where: { $0.hasPrefix("a=rtpmap:\(pt) ") }) {
-                lines.insert("a=fmtp:\(pt) stereo=1;sprop-stereo=1", at: rtpmapIndex + 1)
             }
+
+            for pt in opusPayloadTypes {
+                let fmtpPrefix = "a=fmtp:\(pt) "
+                if let fmtpIndex = section.firstIndex(where: { $0.hasPrefix(fmtpPrefix) }) {
+                    if !section[fmtpIndex].contains("stereo=") {
+                        section[fmtpIndex] += ";stereo=1;sprop-stereo=1"
+                    }
+                } else if let rtpmapIndex = section.firstIndex(where: { $0.hasPrefix("a=rtpmap:\(pt) ") }) {
+                    section.insert("a=fmtp:\(pt) stereo=1;sprop-stereo=1", at: rtpmapIndex + 1)
+                }
+            }
+
+            sections[index] = section
         }
-        return lines.joined(separator: "\r\n")
+
+        return sections.flatMap { $0 }.joined(separator: "\r\n")
+    }
+
+    /// Diagnostic: number of audio m-sections whose fmtp carries stereo=1.
+    static func stereoSectionCount(in sdp: String) -> Int {
+        sdp.components(separatedBy: "\r\n")
+            .filter { $0.hasPrefix("a=fmtp:") && $0.contains("stereo=1") }
+            .count
     }
 }

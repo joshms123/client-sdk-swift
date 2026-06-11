@@ -368,8 +368,10 @@ extension Room: SignalClientDelegate {
             // Advertise Opus stereo receive — the decoder reads the LOCAL
             // description's fmtp and defaults to mono (see OpusStereoSdp).
             let mungedSdp = OpusStereoSdp.enableReceive(in: answer.sdp)
-            let stereoCount = mungedSdp.components(separatedBy: "stereo=1").count - 1
-            NSLog("[RamblioAudio] subscriber answer offerId=%u opusFmtpStereoCount=%d", offerId, stereoCount)
+            NSLog(
+                "[RamblioAudio] subscriber answer offerId=%u stereoAudioSections=%d",
+                offerId, OpusStereoSdp.stereoSectionCount(in: mungedSdp)
+            )
             let stereoAnswer = LKRTCSessionDescription(type: answer.type, sdp: mungedSdp)
             try await subscriber.set(localDescription: stereoAnswer)
             try await signalClient.send(answer: stereoAnswer, offerId: offerId)
