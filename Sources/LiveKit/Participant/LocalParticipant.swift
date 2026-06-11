@@ -765,6 +765,7 @@ extension LocalParticipant {
                 populatorFunc = { populator in
                     populator.disableDtx = !audioPublishOptions.dtx
                     populator.disableRed = !audioPublishOptions.red
+                    populator.stereo = audioPublishOptions.stereo
                     populator.audioFeatures = Array(audioPublishOptions.toFeatures())
 
                     if let streamName = options?.streamName {

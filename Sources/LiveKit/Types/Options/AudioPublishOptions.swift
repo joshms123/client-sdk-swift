@@ -27,6 +27,11 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
 
     public let red: Bool
 
+    /// Publish 2-channel audio. Sets the stereo flag on the server track
+    /// request so the SFU negotiates a stereo Opus encode for this track.
+    /// Disable `red` and `dtx` alongside for music-quality streams.
+    public let stereo: Bool
+
     public let streamName: String?
 
     public let preConnect: Bool
@@ -35,6 +40,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
                 encoding: AudioEncoding? = nil,
                 dtx: Bool = true,
                 red: Bool = true,
+                stereo: Bool = false,
                 streamName: String? = nil,
                 preConnect: Bool = false)
     {
@@ -42,6 +48,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
         self.encoding = encoding
         self.dtx = dtx
         self.red = red
+        self.stereo = stereo
         self.streamName = streamName
         self.preConnect = preConnect
     }
@@ -54,6 +61,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
             encoding == other.encoding &&
             dtx == other.dtx &&
             red == other.red &&
+            stereo == other.stereo &&
             streamName == other.streamName &&
             preConnect == other.preConnect
     }
@@ -64,6 +72,7 @@ public final class AudioPublishOptions: NSObject, TrackPublishOptions, Sendable 
         hasher.combine(encoding)
         hasher.combine(dtx)
         hasher.combine(red)
+        hasher.combine(stereo)
         hasher.combine(streamName)
         hasher.combine(preConnect)
         return hasher.finalize()
@@ -75,6 +84,7 @@ extension AudioPublishOptions {
     func toFeatures() -> Set<Livekit_AudioTrackFeature> {
         Set([
             !dtx ? .tfNoDtx : nil,
+            stereo ? .tfStereo : nil,
             preConnect ? .tfPreconnectBuffer : nil,
         ].compactMap(\.self))
     }
@@ -87,6 +97,7 @@ extension AudioPublishOptions {
             encoding: encoding,
             dtx: dtx,
             red: red,
+            stereo: stereo,
             streamName: streamName,
             preConnect: enabled,
         )
