@@ -56,6 +56,13 @@ actor RTC {
             return ($0.admType, $0.bypassVoiceProcessing)
         }
 
+        // Decode Opus as stereo by default, like browsers do: libwebrtc's
+        // decoder channel count comes from the local fmtp stereo param and
+        // falls back to this field trial when absent — Chrome ships it
+        // enabled, native builds don't, which can mono-ize stereo receive on
+        // renegotiated m-lines even when the answer munge applies.
+        LKRTCInitFieldTrialDictionary(["WebRTC-Audio-OpusDecodeStereoByDefault": "Enabled"])
+
         Room.log("Initializing SSL...")
 
         LKRTCInitializeSSL()
