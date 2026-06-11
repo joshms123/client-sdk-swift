@@ -67,11 +67,4 @@ enum OpusStereoSdp {
 
         return sections.flatMap { $0 }.joined(separator: "\r\n")
     }
-
-    /// Diagnostic: number of audio m-sections whose fmtp carries stereo=1.
-    static func stereoSectionCount(in sdp: String) -> Int {
-        sdp.components(separatedBy: "\r\n")
-            .filter { $0.hasPrefix("a=fmtp:") && $0.contains("stereo=1") }
-            .count
-    }
 }
