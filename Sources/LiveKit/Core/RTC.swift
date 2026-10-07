@@ -203,7 +203,17 @@ extension RTC {
 
         // WARP SPED (DTLS in STUN); SNAP is on `LKRTCConfiguration.liveKitDefault()`.
         // Both engage only when the server negotiates them.
-        LKRTCPeerConnectionFactory.configureFieldTrials("\(kLKRTCFieldTrialIceHandshakeDtlsKey)/\(kLKRTCFieldTrialEnabledValue)/")
+        //
+        // Decode Opus as stereo by default, as browsers do: the decoder's channel
+        // count comes from the local fmtp `stereo` parameter and falls back to this
+        // trial when it is absent. Chrome ships it enabled, native builds don't, and
+        // without it a mono-negotiated m-line hands custom renderers 1-channel audio.
+        // This string is the factory's whole trial set (an explicit set replaces the
+        // global one `LKRTCInitFieldTrialDictionary` fills), so the trial lives here.
+        LKRTCPeerConnectionFactory.configureFieldTrials(
+            "\(kLKRTCFieldTrialIceHandshakeDtlsKey)/\(kLKRTCFieldTrialEnabledValue)/"
+                + "WebRTC-Audio-OpusDecodeStereoByDefault/\(kLKRTCFieldTrialEnabledValue)/"
+        )
 
         Room.log("Initializing PeerConnectionFactory...")
 
