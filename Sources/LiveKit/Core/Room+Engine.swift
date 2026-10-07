@@ -434,6 +434,17 @@ extension Room {
                                           singlePeerConnection: singlePC)
             try Task.checkCancellation()
 
+            // The server restarts the subscriber's ICE on every resume. Its offer and
+            // its new candidates wait in the response queue, so the subscriber is marked
+            // as restarting before they are processed: a candidate handled before the
+            // offer is held for it, and the offer's `set(remoteDescription:)` clears the
+            // mark. Marked after them (behind the primary transport wait and sync state,
+            // as it was), the mark outlived the offer and held every later server
+            // candidate until some future offer; the subscriber then reconnected only if
+            // the server's own checks got through the client's NAT, and each retry of
+            // the reconnect waited out the primary transport timeout.
+            await _state.transport?.setSubscriberRestartingIce()
+
             // Resume after configuring transports...
             await signalClient.resumeQueues()
 
@@ -450,8 +461,6 @@ extension Room {
 
             // send SyncState before offer
             try await sendSyncState()
-
-            await _state.transport?.setSubscriberRestartingIce()
 
             if let publisher = _state.transport?.publisher, _state.hasPublished {
                 // Only if published, wait for publisher to connect...
